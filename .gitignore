@@ -1,0 +1,20 @@
+*.fig
+*.png
+*.gif
+*.jpg
+
+
+# no fig directories
+/IVEMODEL/prelim/prelim_fig
+
+# Latex Extras
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.synctex.gz
+*.toc
