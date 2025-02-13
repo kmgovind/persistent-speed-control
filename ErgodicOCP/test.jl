@@ -1,97 +1,66 @@
-using DifferentialEquations, JuMP, Ipopt, FFTW, Plots
+using DifferentialEquations, Optimization, OptimizationOptimJL, SciMLBase
 
-# Robot dynamics with cubic velocity-dependent discharge rate
-function robot_dynamics!(du, u, p, t)
-    x, y, soc = u  # Robot position (x, y) and energy SOC
-    vx, vy = p      # Control inputs (velocities)
+# Define the system dynamics with clarity evolution
+dynamics!(du, u, p, t) = begin
+    x, b, q = u  # State variables: Position, battery, clarity
+    α, r_func, u_func, C_func, R, Q, q_target = p
     
-    α, r_func = p[3], p[4]  # Energy consumption rate and solar function
-    
-    du[1] = vx  # dx/dt = velocity_x
-    du[2] = vy  # dy/dt = velocity_y
-    du[3] = -α * (vx^2 + vy^2)^(3/2) + r_func(t)  # dSOC/dt
+    du[1] = u_func(t)  # Control input (velocity)
+    du[2] = -α * abs(du[1])^3 + r_func(t)  # Battery dynamics
+    du[3] = (C_func(x)^2 / R) * (1 - q)^2 - Q * q^2  # Clarity dynamics
 end
 
-# Solar charging model (diurnal)
-function solar_charging(t)
-    return max(0, sin(π * (t % 24) / 12))  # Peaks at noon
+# Define the clarity deficit cost function
+function clarity_deficit(u, p)
+    q_target = p[7]
+    return max(0, q_target - u[3])
 end
 
-# Ergodic metric calculation
-function ergodic_metric(traj, phi, K=10)
-    c_k = zeros(K, K)
-    phi_k = zeros(K, K)
-    λ_k = zeros(K,K);
-    
-    for i in 1:K, j in 1:K
-        λ_k[i,j] = 1 / (1 + i^2 + j^2)  # Weighting factor
+# Define the objective function
+function objective(control, p)
+    T, u_max, α, r_func, C_func, R, Q, q_target, b0 = p
+    u_func = t -> SciMLBase.scalarize(control(t)[1])
 
-        println("traj: ", traj[:,1])
-        
-        # Compute trajectory density
-        c_k[i, j] = sum(exp(-((traj[:,1] .- i/K).^2 + (traj[:,2] .- j/K).^2)))
-        
-        # Compute information density Fourier components
-        phi_k[i, j] = exp(-((phi[1] - i/K)^2 + (phi[2] - j/K)^2))
-    end
-    
-    return sum(λ_k .* (c_k - phi_k).^2)
-end
-
-# Simulate the system
-function simulate_trajectory(u0, p, T)
-    tspan = (0.0, T)
-    prob = ODEProblem(robot_dynamics!, u0, tspan, p)
+    # Initial conditions: x = 0, b = b0, clarity = 0 (no prior knowledge)
+    prob = ODEProblem(dynamics!, [0.0, b0, 0.0], (0, T),
+                      (α, r_func, u_func, C_func, R, Q, q_target))
     sol = solve(prob, Tsit5())
-    return sol
+
+    # Compute total clarity deficit
+    return sum(clarity_deficit(sol(t), (q_target,)) for t in sol.t)
 end
 
-# Optimize the trajectory
-function optimize_trajectory(u0, p, T, N=50)
-    model = Model(Ipopt.Optimizer)
-    
-    @variable(model, u[1:N, 1:2])  # Velocity at each time step
-    dt = T / N
-    x, y, soc = u0
-    
-    @variable(model, x_traj[1:N])
-    @variable(model, y_traj[1:N])
-    @variable(model, soc_traj[1:N])
-    
-    @constraint(model, x_traj[1] == x)
-    @constraint(model, y_traj[1] == y)
-    @constraint(model, soc_traj[1] == soc)
-    
-    α, r_func = p[1], p[2]
-    
-    for t in 1:N-1
-        @constraint(model, x_traj[t+1] == x_traj[t] + dt * u[t,1])
-        @constraint(model, y_traj[t+1] == y_traj[t] + dt * u[t,2])
-        @constraint(model, soc_traj[t+1] == soc_traj[t] - α * (u[t,1]^2 + u[t,2]^2)^(3/2) * dt + r_func(t*dt) * dt)
-    end
-    
-    @constraint(model, soc_traj .≥ 0)
-    
-    phi = [0.5, 0.5]  # Target information density
-    @objective(model, Min, ergodic_metric([x_traj y_traj], phi))
-    
-    optimize!(model)
-    
-    return value.(u), value.(x_traj), value.(y_traj), value.(soc_traj)
+# Define constraints
+function constraints(control, p)
+    T, u_max, α, r_func, C_func, R, Q, q_target, b0 = p
+    u_func = t -> SciMLBase.scalarize(control(t)[1])
+
+    prob = ODEProblem(dynamics!, [0.0, b0, 0.0], (0, T),
+                      (α, r_func, u_func, C_func, R, Q, q_target))
+    sol = solve(prob, Tsit5())
+
+    return [maximum(abs.(u_func.(LinRange(0, T, 100)))) - u_max, sol(T, idxs=2) - 0]  # b(T) = 0
 end
 
-# Run optimization and plot results
-u0 = [0.0, 0.0, 1.0]  # Initial state (x, y, SOC)
-params = (0.1, solar_charging)  # (α, solar function)
-T = 24  # Time horizon
+# Example Clarity Functions
+C_func(x) = 1.0  # Example sensor clarity function
+R = 0.1  # Measurement noise variance
+Q = 0.05  # Process noise variance
+q_target = 0.9  # Target clarity
 
-u_opt, x_traj, y_traj, soc_traj = optimize_trajectory(u0, params, T)
+# Define initial conditions and parameters
+b0 = 1.0  # Initial battery
+T = 10.0  # Time horizon
+α = 1.0  # Coefficient in dynamics
+r_func = t -> 0.1  # Example replenishment function
+u_max = 1.0  # Control constraint
 
-plot(x_traj, y_traj, label="Optimal Path")
-scatter!([0.5], [0.5], label="Target Info Density", color=:red)
-xlabel!("X Position")
-ylabel!("Y Position")
+p = (T, u_max, α, r_func, C_func, R, Q, q_target, b0)
+control_guess = t -> [0.0]  # Initial guess for control
 
-plot(soc_traj, label="SOC", color=:green)
-xlabel!("Time")
-ylabel!("State of Charge (SOC)")
+opt_prob = OptimizationFunction(objective, Optimization.AutoForwardDiff())
+prob = OptimizationProblem(opt_prob, control_guess, p, constraints=constraints)
+sol = solve(prob, Optim.BFGS())
+
+println("Optimal Clarity Deficit:", sol.minimum)
+println("Optimal Control Policy:", sol.u)
