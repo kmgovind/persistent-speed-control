@@ -1,8 +1,8 @@
-using JuMP, NLopt, JLD2, ProgressLogging
+using JuMP, KNITRO, JLD2, ProgressLogging
 
 # Define grid
-xs = 0:0.5:10;  # Reduced grid size for debugging
-ys = 0:0.5:10;  # Reduced grid size for debugging
+xs = 0:0.1:10;
+ys = 0:0.1:10;
 dim_x, dim_y = length(xs), length(ys);
 
 # Create clarity map and target clarity map
@@ -16,7 +16,7 @@ C = 1.0   # Measurement strength
 sensing_radius = 2.5  # Radius of the sensing area
 alpha = 0.1  # Energy dissipation rate
 umax = 2.35   # Maximum control input
-T = 20       # Reduced time horizon for debugging
+T = 100       # Time horizon
 
 # Define target clarity peaks
 peaks = [(2.5, 2.5), (2.5, 7.5), (7.5, 2.5), (7.5, 7.5)]
@@ -29,14 +29,12 @@ for (px, py) in peaks
 end
 
 # Gaussian function for clarity update
-function gaussian(x, y, cx, cy, sigma)
-    return exp(-((x - cx)^2 + (y - cy)^2) / (2 * sigma^2))
-end
+gaussian(x, y, cx, cy, sigma) = exp(-((x - cx)^2 + (y - cy)^2) / (2 * sigma^2))
 
 # Optimal control problem
-model = Model(NLopt.Optimizer)
-set_optimizer_attribute(model, "algorithm", :LD_SLSQP)  # Use the Sequential Least Squares Quadratic Programming algorithm
-set_optimizer_attribute(model, "xtol_rel", 1e-4)  # Set relative tolerance
+model = Model(KNITRO.Optimizer)
+set_optimizer_attribute(model, "outlev", 1)  # Set verbosity level
+set_optimizer_attribute(model, "algorithm", 1)  # Use the default algorithm
 
 @variable(model, x[1:T])
 @variable(model, y[1:T])
@@ -72,8 +70,7 @@ end
 @objective(model, Min, sum((clarity[i, j, T] - target_clarity[i, j])^2 for i in 1:dim_x, j in 1:dim_y))
 
 @time begin
-    # Solve the optimization problem
-    JuMP.optimize!(model)
+    optimize!(model)
 end
 
 # Check solver status
@@ -94,7 +91,5 @@ if termination_status(model) == MOI.OPTIMAL
     u_y_opt = value.(u_y)
     b_opt = value.(b)
     clarity_opt = value.(clarity[:, :, T])
-
-    # Save results to a JLD2 file
-    @save "single_ocp_results.jld2" x_opt y_opt u_x_opt u_y_opt b_opt clarity_opt target_clarity
+    @save "knitro_ocp_results.jld2" x_opt y_opt u_x_opt u_y_opt b_opt clarity_opt target_clarity
 end
