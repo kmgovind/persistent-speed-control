@@ -1,0 +1,64 @@
+
+\subsection{Variable Names}
+Define the following states:
+\begin{itemize}
+    \item $x(t)$: position of the robot at time $t$
+    \item $u(t)$: control input (velocity) at time $t$
+    \item $b(t)$: state of charge at time $t$
+    \item $r(t)$: solar irradiance at time $t$
+\end{itemize}
+
+Define $T_h$ to be the long-horizon exploration time window, such that
+\begin{equation}
+    T \leq t \leq T + T_h
+\end{equation}
+
+Further define:
+\begin{itemize}
+    \item $\phi(x)$ as the spatial distribution of information
+    \item $p(x,t)$ as the time-averaged trajectory distribution over $T_h$
+\end{itemize}
+
+\subsection{Ergodicity}
+The ergodicity metric $\mathcal{E}(p, \phi)$ quantifies the mismatch between the trajectory distribution $p(x)$ and the information density $\phi(x)$. The ergodic control problem aims to minimize this metric.
+
+We can measure ergodicity via the spectral norm difference:
+\begin{equation}
+    \epsilon = \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2
+\end{equation}
+where $c_k$ are the Fourier coefficients of $\phi(x)$ (the target information distribution), $\hat{c}_k$ are the Fourier coefficients of $p(x)$ (the actual information distribution), and $\lambda_k$ are weights (Fourier coefficients) for the spatial frequencies.
+
+
+\begin{center}
+\begin{tcolorbox}[colback=gray!30, colframe=white, width=\textwidth, boxrule=0pt, arc=0pt, auto outer arc]
+    This ensures that the robot's motion explores the environment in a manner consistent with the desired information distribution.
+\end{tcolorbox}
+\end{center}
+
+To incorporate energy constraints, we introduce a time-dependent weight:
+\begin{equation}
+\mathcal{E}_w(p, \phi) = \int_0^T \omega(t) \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
+\end{equation}
+where $\omega(t) = \frac{b(t)}{b_{\max}}$, meaning information gain is prioritized when energy is available.
+
+\subsection{Energy Dynamics}
+The energy dynamics of the system are given by:
+\begin{equation}
+    \dot{b} = - \alpha \|u\|^3 + r(t)
+\end{equation}
+where $\alpha > 0$ is a scaling factor for velocity-based energy consumption, and $r(t)$ is the solar charging rate, typically sinusoidal or piecewise defined.
+
+The solar irradiance profile, denoted as \( r(t) \), varies throughout the day following a diurnal pattern. A simple model that captures this variation is:
+
+\begin{equation}
+    r(t) = r_{\max} \cdot \max\left(0, \sin\left(\frac{\pi (t - t_{\text{sunrise}})}{t_{\text{sunset}} - t_{\text{sunrise}}} \right) \right)
+\end{equation}
+
+where:
+\begin{itemize}
+    \item \( r_{\max} \) is the peak irradiance at solar noon (typically around 1000 W/m²).
+    \item \( t_{\text{sunrise}} \) and \( t_{\text{sunset}} \) define the daylight hours.
+    \item The sine function ensures that irradiance rises in the morning, peaks at noon, and falls in the evening.
+\end{itemize}
+
+This model assumes a clear-sky condition, without atmospheric effects or seasonal variations.

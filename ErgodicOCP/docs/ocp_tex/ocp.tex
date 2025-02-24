@@ -17,141 +17,20 @@ This document defines an optimal control problem (OCP) for generating ergodic tr
 
 We reference Kaleb's Eclares work \cite{naveedEclaresEnergyAwareClarityDriven2024} for the ergodicity formulation.
 
+\section{Literature Review}
+\input{sections/lit_review.tex}
+
 \section{Preliminaries}
-\subsection{Variable Names}
-Define the following states:
-\begin{itemize}
-    \item $x(t)$: position of the robot at time $t$
-    \item $u(t)$: control input (velocity) at time $t$
-    \item $b(t)$: state of charge at time $t$
-    \item $r(t)$: solar irradiance at time $t$
-\end{itemize}
-
-Define $T_h$ to be the long-horizon exploration time window, such that
-\begin{equation}
-    T \leq t \leq T + T_h
-\end{equation}
-
-Further define:
-\begin{itemize}
-    \item $\phi(x)$ as the spatial distribution of information
-    \item $p(x,t)$ as the time-averaged trajectory distribution over $T_h$
-\end{itemize}
-
-\subsection{Ergodicity}
-The ergodicity metric $\mathcal{E}(p, \phi)$ quantifies the mismatch between the trajectory distribution $p(x)$ and the information density $\phi(x)$. The ergodic control problem aims to minimize this metric.
-
-We can measure ergodicity via the spectral norm difference:
-\begin{equation}
-    \epsilon = \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2
-\end{equation}
-where $c_k$ are the Fourier coefficients of $\phi(x)$ (the target information distribution), $\hat{c}_k$ are the Fourier coefficients of $p(x)$ (the actual information distribution), and $\lambda_k$ are weights (Fourier coefficients) for the spatial frequencies.
-
-
-\begin{center}
-\begin{tcolorbox}[colback=gray!30, colframe=white, width=\textwidth, boxrule=0pt, arc=0pt, auto outer arc]
-    This ensures that the robot's motion explores the environment in a manner consistent with the desired information distribution.
-\end{tcolorbox}
-\end{center}
-
-To incorporate energy constraints, we introduce a time-dependent weight:
-\begin{equation}
-\mathcal{E}_w(p, \phi) = \int_0^T \omega(t) \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
-\end{equation}
-where $\omega(t) = \frac{b(t)}{b_{\max}}$, meaning information gain is prioritized when energy is available.
-
-\subsection{Energy Dynamics}
-The energy dynamics of the system are given by:
-\begin{equation}
-    \dot{b} = - \alpha \|u\|^3 + r(t)
-\end{equation}
-where $\alpha > 0$ is a scaling factor for velocity-based energy consumption, and $r(t)$ is the solar charging rate, typically sinusoidal or piecewise defined.
-
-The solar irradiance profile, denoted as \( r(t) \), varies throughout the day following a diurnal pattern. A simple model that captures this variation is:
-
-\begin{equation}
-    r(t) = r_{\max} \cdot \max\left(0, \sin\left(\frac{\pi (t - t_{\text{sunrise}})}{t_{\text{sunset}} - t_{\text{sunrise}}} \right) \right)
-\end{equation}
-
-where:
-\begin{itemize}
-    \item \( r_{\max} \) is the peak irradiance at solar noon (typically around 1000 W/m²).
-    \item \( t_{\text{sunrise}} \) and \( t_{\text{sunset}} \) define the daylight hours.
-    \item The sine function ensures that irradiance rises in the morning, peaks at noon, and falls in the evening.
-\end{itemize}
-
-This model assumes a clear-sky condition, without atmospheric effects or seasonal variations.
+\input{sections/prelim.tex}
 
 \section{Optimal Control Problem Formulation}
-Minimize the ergodic metric:
-\begin{equation}
-    \min_u \int_0^T \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
-\end{equation}
-subject to the dynamics:
-\begin{align}
-    \dot{x} &= u \\
-    \dot{b} &= - \alpha \|u\|^3 + r(t)
-\end{align}
-and the constraints:
-\begin{align}
-    \|u(t)\| &\leq u_{\max} \\
-    b(t) &\geq 0 \\
-    b(T) &= b_T
-\end{align}
-
-\section{Indirect Methods Solution}
-We proceed using indirect methods. We first compute the following Hamiltonian:
-\begin{equation}
-   H = \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 + \lambda_x^T u + \lambda_{b} \left( - \alpha \|u\|^3 + r(t) \right)
-\end{equation}
-where $\lambda_x$ and $\lambda_{b}$ are the costate variables.
-
-This yields the following costate dynamics:
-\begin{align}
-   \dot{\lambda}_x &= -\frac{\partial H}{\partial x} \\
-   \dot{\lambda}_{b} &= -\frac{\partial H}{\partial b}
-\end{align}
-   
-The optimal control $u^*$ must satisfy:
-\begin{equation}
-   \frac{\partial H}{\partial u} = 0
-\end{equation}
-
-and must satisfy the following boundary conditions:
-\begin{align}
-   x(0) &= x_0 \\
-   b(0) &= b_0 \\
-   b(T) &= b_T \\
-   \lambda_x(T) &= 0 \\
-   \lambda_{b}(T) &= 0
-\end{align}
-
-Thus, we have derived a two-point boundary value problem. We can use numerical methods such as the shooting method or collocation method to solve the resulting two-point boundary value problem (BVP).
+\input{sections/ocp.tex}
 
 \section{Information Value of Energy}
-To compute the information value of energy, define:
-\begin{equation}
-    \mathcal{I}(T_h, b_T) = \frac{1}{T_h - T} \int_T^{T+T_h} \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
-\end{equation}
-The marginal information value of energy is:
-\begin{equation}
-    \frac{d}{d (b_T)} \mathcal{I}(T_h, b_T)
-\end{equation}
-which quantifies the additional information gain per unit SOC.
-
-\subsection{Brute Force Approach}
-This essentially sets up an independent OCP for computing the information value of energy. We can solve the same ergodic optimal control formulation from before, but varying the boundary conditions:
-\begin{itemize}
-    \item No terminal condition on $b$. $b(T) = b_T$ is the only constraint.
-    \item Sweep through increasing values of $T_h$
-    \item Sweep through various values of $b_T$
-\end{itemize}
-
-This will give us a massive surface of information value of energy, from which we can quantify the marginal information value of energy.
-
-If we allow for charging dynamics, I anticipate that there may be some periodic nature that arises for increasing values of $T_h$.
+\input{sections/ive.tex}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
+
 
 \end{document}

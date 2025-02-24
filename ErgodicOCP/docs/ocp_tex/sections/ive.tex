@@ -1,0 +1,21 @@
+To compute the information value of energy, define:
+\begin{equation}
+    \mathcal{I}(T_h, b_T) = \frac{1}{T_h - T} \int_T^{T+T_h} \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
+\end{equation}
+The marginal information value of energy is:
+\begin{equation}
+    \frac{d}{d (b_T)} \mathcal{I}(T_h, b_T)
+\end{equation}
+which quantifies the additional information gain per unit SOC.
+
+\subsection{Brute Force Approach}
+This essentially sets up an independent OCP for computing the information value of energy. We can solve the same ergodic optimal control formulation from before, but varying the boundary conditions:
+\begin{itemize}
+    \item No terminal condition on $b$. $b(T) = b_T$ is the only constraint.
+    \item Sweep through increasing values of $T_h$
+    \item Sweep through various values of $b_T$
+\end{itemize}
+
+This will give us a massive surface of information value of energy, from which we can quantify the marginal information value of energy.
+
+If we allow for charging dynamics, I anticipate that there may be some periodic nature that arises for increasing values of $T_h$.

@@ -1,0 +1,74 @@
+\subsection{Problem Statement}
+Minimize the ergodic metric:
+\begin{equation}
+    \min_u \int_0^T \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 dt
+\end{equation}
+subject to the dynamics:
+\begin{align}
+    \dot{x} &= u \\
+    \dot{b} &= - \alpha \|u\|^3 + r(t)
+\end{align}
+and the constraints:
+\begin{align}
+    \|u(t)\| &\leq u_{\max} \\
+    b(t) &\geq 0 \\
+    b(T) &= b_T
+\end{align}
+
+\subsection{Indirect Methods Solution}
+We proceed using indirect methods. We first compute the following Hamiltonian:
+\begin{equation}
+   H = \sum_k \lambda_k \left| c_k - \hat{c}_k \right|^2 + \lambda_x^T u + \lambda_{b} \left( - \alpha \|u\|^3 + r(t) \right)
+\end{equation}
+where $\lambda_x$ and $\lambda_{b}$ are the costate variables.
+
+This yields the following costate dynamics:
+\begin{align}
+   \dot{\lambda}_x &= -\frac{\partial H}{\partial x} \\
+   \dot{\lambda}_{b} &= -\frac{\partial H}{\partial b}
+\end{align}
+   
+The optimal control $u^*$ must satisfy:
+\begin{equation}
+   \frac{\partial H}{\partial u} = 0
+\end{equation}
+
+and must satisfy the following boundary conditions:
+\begin{align}
+   x(0) &= x_0 \\
+   b(0) &= b_0 \\
+   b(T) &= b_T \\
+   \lambda_x(T) &= 0 \\
+   \lambda_{b}(T) &= 0
+\end{align}
+
+Thus, we have derived a two-point boundary value problem. We can use numerical methods such as the shooting method or collocation method to solve the resulting two-point boundary value problem (BVP).
+
+Using PMP:
+\begin{equation}
+    \frac{\partial H}{\partial u} = \lambda_x - 3\alpha \lambda_b \|u\| u = 0
+\end{equation}
+
+Solving for \( u \):
+
+\begin{equation}
+    u^* = \frac{\lambda_x}{3\alpha \lambda_b \|u\|}
+\end{equation}
+
+Taking the norm on both sides:
+
+\begin{equation}
+    \|u^*\| = \frac{\|\lambda_x\|}{3\alpha |\lambda_b|}
+\end{equation}
+
+Thus, the optimal control is:
+
+\begin{equation}
+    u^* = \frac{\|\lambda_x\|}{3\alpha |\lambda_b|} \frac{\lambda_x}{\|\lambda_x\|}
+\end{equation}
+
+Considering the control constraint \( \|u(t)\| \leq u_{\max} \), the final expression for \( u^* \) is:
+
+\begin{equation}
+    u^* = \min\left(\frac{\|\lambda_x\|}{3\alpha |\lambda_b|}, u_{\max} \right) \frac{\lambda_x}{\|\lambda_x\|}
+\end{equation}

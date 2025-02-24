@@ -18,3 +18,10 @@
 *.out
 *.synctex.gz
 *.toc
+*.xdv
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdfsync
